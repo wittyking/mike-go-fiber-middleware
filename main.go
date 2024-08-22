@@ -7,8 +7,10 @@ import (
 	"time"
 
 	"github.com/gofiber/fiber/v2"
+	jwtware "github.com/gofiber/jwt/v2"
 	"github.com/gofiber/template/html/v2"
-	"github.com/golang-jwt/jwt"
+	"github.com/golang-jwt/jwt/v4"
+
 	"github.com/joho/godotenv"
 )
 
@@ -40,6 +42,12 @@ func checkMiddleware(c *fiber.Ctx) error {
 	fmt.Printf("URL = %s, Method = %s, Time =%s\n",
 		c.OriginalURL(), c.Method(), start)
 
+	user := c.Locals("user").(*jwt.Token)
+	claims := user.Claims.(jwt.MapClaims)
+
+	if claims["role"] != "admin" {
+		return fiber.ErrUnauthorized
+	}
 	return c.Next()
 }
 
@@ -69,11 +77,11 @@ func main() {
 
 	app.Post("/login", login)
 
-	app.Use(checkMiddleware)
+	app.Use(jwtware.New(jwtware.Config{
+		SigningKey: []byte(os.Getenv("JWT_SECRET")),
+	}))
 
-	// app.Use(jwtware.New(jwtware.Config{
-	// 	SigningKey: []byte(os.Getenv("JWT_SECRET")),
-	// }))
+	app.Use(checkMiddleware)
 
 	app.Get("/books", getBooks)
 	app.Get("/books/:id", getBook)
@@ -168,7 +176,7 @@ func login(c *fiber.Ctx) error {
 		"token":   t,
 	})
 
-	return c.JSON(fiber.Map{
-		"message": "Login success",
-	})
+	// return c.JSON(fiber.Map{
+	// 	"message": "Login success",
+	// })
 }
